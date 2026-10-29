@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Premier League Finish Matcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root { color-scheme: light; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+</style>
+<style>
+/* Layout: one narrow column, a control panel on top, then the chart, the season-by-season table and a short list of runner-up teams. */
+:root {
+  --bg: #f3f6f8;
+  --surface: #ffffff;
+  --ink: #13202a;
+  --muted: #566774;
+  --line: #d6dee4;
+  --grid: #e3e9ed;
+  --me: #2a78d6;
+  --match: #eb6834;
+  --match2: #1baf7a;
+  --btn-bg: #13202a;
+  --btn-fg: #ffffff;
+  --err: #b3261e;
+  --display: 'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e161c;
+    --surface: #16212a;
+    --ink: #e7edf1;
+    --muted: #98a8b4;
+    --line: #2a3943;
+    --grid: #22303a;
+    --me: #3987e5;
+    --match: #d95926;
+    --match2: #199e70;
+    --btn-bg: #e7edf1;
+    --btn-fg: #0e161c;
+    --err: #f08a84;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e161c;
+  --surface: #16212a;
+  --ink: #e7edf1;
+  --muted: #98a8b4;
+  --line: #2a3943;
+  --grid: #22303a;
+  --me: #3987e5;
+  --match: #d95926;
+  --match2: #199e70;
+  --btn-bg: #e7edf1;
+  --btn-fg: #0e161c;
+  --err: #f08a84;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 720px; margin: 0 auto; display: grid; gap: 20px; }
+.wrap > * { min-width: 0; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 28px; line-height: 1.15; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+label { font-size: 13px; font-weight: 500; color: var(--muted); }
+input, select, button { font: inherit; }
+input[type="text"], select {
+  height: 44px; padding: 0 12px; font-size: 16px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; width: 100%; min-width: 0;
+}
+input[type="text"].mono { font-family: var(--mono); font-weight: 500; letter-spacing: 0.02em; }
+input[aria-invalid="true"] { border-color: var(--err); }
+.hint { font-size: 12px; color: var(--muted); }
+.err { color: var(--err); font-size: 13px; font-weight: 500; margin: 0; }
+.go { grid-column: 1 / -1; height: 44px; border: 0; border-radius: 8px; background: var(--btn-bg); color: var(--btn-fg); font-weight: 600; font-size: 15px; cursor: pointer; }
+.go:active { transform: translateY(1px); }
+:focus-visible { outline: 2px solid var(--me); outline-offset: 2px; }
+
+.headlines { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 8px; }
+.headline { display: grid; gap: 2px; align-content: start; min-width: 0; }
+.kind { font-family: var(--display); font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.team { font-family: var(--display); font-weight: 600; font-size: 24px; line-height: 1.15; }
+.seasons { font-family: var(--mono); font-weight: 500; font-size: 13px; color: var(--muted); }
+.detail { margin: 4px 0 0; }
+.meta { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.headlines + .meta { margin: 0 0 12px; }
+.altgroup + .altgroup { margin-top: 20px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.chartbox { position: relative; width: 100%; height: 340px; }
+
+.tablewrap { overflow-x: auto; margin-top: 16px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 12px; font-weight: 500; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+td { font-family: var(--mono); font-weight: 500; font-size: 14px; }
+td.yr { font-family: var(--body); font-weight: 500; }
+td.yr small { color: var(--muted); font-family: var(--mono); font-size: 12px; margin-left: 6px; }
+tfoot td { border-bottom: 0; font-weight: 600; }
+.zero { color: var(--muted); }
+
+.alts { display: grid; gap: 8px; }
+.alts button {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; text-align: left;
+  min-height: 48px; padding: 8px 12px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+}
+.alts button[aria-pressed="true"] { border-color: var(--match); box-shadow: inset 0 0 0 1px var(--match); }
+.alts .nm { font-weight: 500; }
+.alts .ss { display: block; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.alts .sc { font-family: var(--mono); font-weight: 500; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.foot { font-size: 12px; color: var(--muted); max-width: 70ch; margin: 0; }
+
+@media (max-width: 520px) {
+  form { grid-template-columns: 1fr; }
+  .chartbox { height: 320px; }
+}
+@media (prefers-reduced-motion: reduce) { .go:active { transform: none; } }
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <header>
+    <h1>Premier League Finish Matcher</h1>
+    <p class="lede">Enter a run of league finishes. The page finds the Premier League team whose stretch of seasons comes closest to it, from 1992-93 to 2025-26.</p>
+  </header>
+
+  <section class="panel" aria-label="Your run of finishes">
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="name">Name for your data</label>
+        <input type="text" id="name" value="Me" maxlength="40" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="desc">Description</label>
+        <input type="text" id="desc" value="LL104 to LL110" maxlength="40" autocomplete="off">
+      </div>
+      <div class="field full">
+        <label for="finishes">Finishes, one per year (2 to 10)</label>
+        <input type="text" class="mono" id="finishes" value="1, 7, 1, 4, 9, 6, 1" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="hint err">
+        <span class="hint" id="hint">Whole numbers from 1 to 22, separated by commas or spaces. 1 is first place.</span>
+        <p class="err" id="err" role="alert" hidden></p>
+      </div>
+      <div class="field full">
+        <label for="mode">Match on</label>
+        <select id="mode">
+          <option value="exact">Exact finishes</option>
+          <option value="shape">Same shape, any offset</option>
+          <option value="both">Both, exact and shape</option>
+        </select>
+      </div>
+      <button type="submit" class="go">Find closest match</button>
+    </form>
+  </section>
+
+  <section class="panel" id="result" aria-label="Closest match" aria-live="polite">
+    <div class="headlines" id="headlines"></div>
+    <p class="meta" id="hl-meta"></p>
+    <div class="legend" id="legend"></div>
+    <div class="chartbox"><canvas id="chart" role="img" aria-label="Line chart comparing the two runs">Line chart comparing your run of finishes with the closest Premier League stretch.</canvas></div>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+
+  <section id="alts-wrap" aria-label="Runner-up teams"></section>
+
+  <p class="foot">Final tables are built from match results, with the known points deductions applied (Middlesbrough 1996-97, Portsmouth 2009-10, Everton and Nottingham Forest 2023-24). 1992-93 to 1994-95 had 22 teams. The 2025-26 table comes from the same match data and has not been checked against an official table. Match results come from the public-domain (CC0) datasets <a href="https://github.com/footballcsv/england">footballcsv/england</a> and <a href="https://github.com/openfootball/england">openfootball/england</a>.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var DATA = {"1992-93":["Manchester United","Aston Villa","Norwich City","Blackburn Rovers","Queens Park Rangers","Liverpool","Sheffield Wednesday","Tottenham Hotspur","Manchester City","Arsenal","Chelsea","Wimbledon","Everton","Sheffield United","Coventry City","Ipswich Town","Leeds United","Southampton","Oldham Athletic","Crystal Palace","Middlesbrough","Nottingham Forest"],"1993-94":["Manchester United","Blackburn Rovers","Newcastle United","Arsenal","Leeds United","Wimbledon","Sheffield Wednesday","Liverpool","Queens Park Rangers","Aston Villa","Coventry City","Norwich City","West Ham United","Chelsea","Tottenham Hotspur","Manchester City","Everton","Southampton","Ipswich Town","Sheffield United","Oldham Athletic","Swindon Town"],"1994-95":["Blackburn Rovers","Manchester United","Nottingham Forest","Liverpool","Leeds United","Newcastle United","Tottenham Hotspur","Queens Park Rangers","Wimbledon","Southampton","Chelsea","Arsenal","Sheffield Wednesday","West Ham United","Everton","Coventry City","Manchester City","Aston Villa","Crystal Palace","Norwich City","Leicester City","Ipswich Town"],"1995-96":["Manchester United","Newcastle United","Liverpool","Aston Villa","Arsenal","Everton","Blackburn Rovers","Tottenham Hotspur","Nottingham Forest","West Ham United","Chelsea","Middlesbrough","Leeds United","Wimbledon","Sheffield Wednesday","Coventry City","Southampton","Manchester City","Queens Park Rangers","Bolton Wanderers"],"1996-97":["Manchester United","Newcastle United","Arsenal","Liverpool","Aston Villa","Chelsea","Sheffield Wednesday","Wimbledon","Leicester City","Tottenham Hotspur","Leeds United","Derby County","Blackburn Rovers","West Ham United","Everton","Southampton","Coventry City","Sunderland","Middlesbrough","Nottingham Forest"],"1997-98":["Arsenal","Manchester United","Liverpool","Chelsea","Leeds United","Blackburn Rovers","Aston Villa","West Ham United","Derby County","Leicester City","Coventry City","Southampton","Newcastle United","Tottenham Hotspur","Wimbledon","Sheffield Wednesday","Everton","Bolton Wanderers","Barnsley","Crystal Palace"],"1998-99":["Manchester United","Arsenal","Chelsea","Leeds United","West Ham United","Aston Villa","Liverpool","Derby County","Middlesbrough","Leicester City","Tottenham Hotspur","Sheffield Wednesday","Newcastle United","Everton","Coventry City","Wimbledon","Southampton","Charlton Athletic","Blackburn Rovers","Nottingham Forest"],"1999-00":["Manchester United","Arsenal","Leeds United","Liverpool","Chelsea","Aston Villa","Sunderland","Leicester City","West Ham United","Tottenham Hotspur","Newcastle United","Middlesbrough","Everton","Coventry City","Southampton","Derby County","Bradford City","Wimbledon","Sheffield Wednesday","Watford"],"2000-01":["Manchester United","Arsenal","Liverpool","Leeds United","Ipswich Town","Chelsea","Sunderland","Aston Villa","Charlton Athletic","Southampton","Newcastle United","Tottenham Hotspur","Leicester City","Middlesbrough","West Ham United","Everton","Derby County","Manchester City","Coventry City","Bradford City"],"2001-02":["Arsenal","Liverpool","Manchester United","Newcastle United","Leeds United","Chelsea","West Ham United","Aston Villa","Tottenham Hotspur","Blackburn Rovers","Southampton","Middlesbrough","Fulham","Charlton Athletic","Everton","Bolton Wanderers","Sunderland","Ipswich Town","Derby County","Leicester City"],"2002-03":["Manchester United","Arsenal","Newcastle United","Chelsea","Liverpool","Blackburn Rovers","Everton","Southampton","Manchester City","Tottenham Hotspur","Middlesbrough","Charlton Athletic","Birmingham City","Fulham","Leeds United","Aston Villa","Bolton Wanderers","West Ham United","West Bromwich Albion","Sunderland"],"2003-04":["Arsenal","Chelsea","Manchester United","Liverpool","Newcastle United","Aston Villa","Charlton Athletic","Bolton Wanderers","Fulham","Birmingham City","Middlesbrough","Southampton","Portsmouth","Tottenham Hotspur","Blackburn Rovers","Manchester City","Everton","Leicester City","Leeds United","Wolverhampton Wanderers"],"2004-05":["Chelsea","Arsenal","Manchester United","Everton","Liverpool","Bolton Wanderers","Middlesbrough","Manchester City","Tottenham Hotspur","Aston Villa","Charlton Athletic","Birmingham City","Fulham","Newcastle United","Blackburn Rovers","Portsmouth","West Bromwich Albion","Crystal Palace","Norwich City","Southampton"],"2005-06":["Chelsea","Manchester United","Liverpool","Arsenal","Tottenham Hotspur","Blackburn Rovers","Newcastle United","Bolton Wanderers","West Ham United","Wigan Athletic","Everton","Fulham","Charlton Athletic","Middlesbrough","Manchester City","Aston Villa","Portsmouth","Birmingham City","West Bromwich Albion","Sunderland"],"2006-07":["Manchester United","Chelsea","Liverpool","Arsenal","Tottenham Hotspur","Everton","Bolton Wanderers","Reading","Portsmouth","Blackburn Rovers","Aston Villa","Middlesbrough","Newcastle United","Manchester City","West Ham United","Fulham","Wigan Athletic","Sheffield United","Charlton Athletic","Watford"],"2007-08":["Manchester United","Chelsea","Arsenal","Liverpool","Everton","Aston Villa","Blackburn Rovers","Portsmouth","Manchester City","West Ham United","Tottenham Hotspur","Newcastle United","Middlesbrough","Wigan Athletic","Sunderland","Bolton Wanderers","Fulham","Reading","Birmingham City","Derby County"],"2008-09":["Manchester United","Liverpool","Chelsea","Arsenal","Everton","Aston Villa","Fulham","Tottenham Hotspur","West Ham United","Manchester City","Wigan Athletic","Stoke City","Bolton Wanderers","Portsmouth","Blackburn Rovers","Sunderland","Hull City","Newcastle United","Middlesbrough","West Bromwich Albion"],"2009-10":["Chelsea","Manchester United","Arsenal","Tottenham Hotspur","Manchester City","Aston Villa","Liverpool","Everton","Birmingham City","Blackburn Rovers","Stoke City","Fulham","Sunderland","Bolton Wanderers","Wolverhampton Wanderers","Wigan Athletic","West Ham United","Burnley","Hull City","Portsmouth"],"2010-11":["Manchester United","Chelsea","Manchester City","Arsenal","Tottenham Hotspur","Liverpool","Everton","Fulham","Aston Villa","Sunderland","West Bromwich Albion","Newcastle United","Stoke City","Bolton Wanderers","Blackburn Rovers","Wigan Athletic","Wolverhampton Wanderers","Birmingham City","Blackpool","West Ham United"],"2011-12":["Manchester City","Manchester United","Arsenal","Tottenham Hotspur","Newcastle United","Chelsea","Everton","Liverpool","Fulham","West Bromwich Albion","Swansea City","Norwich City","Sunderland","Stoke City","Wigan Athletic","Aston Villa","Queens Park Rangers","Bolton Wanderers","Blackburn Rovers","Wolverhampton Wanderers"],"2012-13":["Manchester United","Manchester City","Chelsea","Arsenal","Tottenham Hotspur","Everton","Liverpool","West Bromwich Albion","Swansea City","West Ham United","Norwich City","Fulham","Stoke City","Southampton","Aston Villa","Newcastle United","Sunderland","Wigan Athletic","Reading","Queens Park Rangers"],"2013-14":["Manchester City","Liverpool","Chelsea","Arsenal","Everton","Tottenham Hotspur","Manchester United","Southampton","Stoke City","Newcastle United","Crystal Palace","Swansea City","West Ham United","Sunderland","Aston Villa","Hull City","West Bromwich Albion","Norwich City","Fulham","Cardiff City"],"2014-15":["Chelsea","Manchester City","Arsenal","Manchester United","Tottenham Hotspur","Liverpool","Southampton","Swansea City","Stoke City","Crystal Palace","Everton","West Ham United","West Bromwich Albion","Leicester City","Newcastle United","Sunderland","Aston Villa","Hull City","Burnley","Queens Park Rangers"],"2015-16":["Leicester City","Arsenal","Tottenham Hotspur","Manchester City","Manchester United","Southampton","West Ham United","Liverpool","Stoke City","Chelsea","Everton","Swansea City","Watford","West Bromwich Albion","Crystal Palace","Bournemouth","Sunderland","Newcastle United","Norwich City","Aston Villa"],"2016-17":["Chelsea","Tottenham Hotspur","Manchester City","Liverpool","Arsenal","Manchester United","Everton","Southampton","Bournemouth","West Bromwich Albion","West Ham United","Leicester City","Stoke City","Crystal Palace","Swansea City","Burnley","Watford","Hull City","Middlesbrough","Sunderland"],"2017-18":["Manchester City","Manchester United","Tottenham Hotspur","Liverpool","Chelsea","Arsenal","Burnley","Everton","Leicester City","Newcastle United","Crystal Palace","Bournemouth","West Ham United","Watford","Brighton & Hove Albion","Huddersfield Town","Southampton","Swansea City","Stoke City","West Bromwich Albion"],"2018-19":["Manchester City","Liverpool","Chelsea","Tottenham Hotspur","Arsenal","Manchester United","Wolverhampton Wanderers","Everton","Leicester City","West Ham United","Watford","Crystal Palace","Newcastle United","Bournemouth","Burnley","Southampton","Brighton & Hove Albion","Cardiff City","Fulham","Huddersfield Town"],"2019-20":["Liverpool","Manchester City","Manchester United","Chelsea","Leicester City","Tottenham Hotspur","Wolverhampton Wanderers","Arsenal","Sheffield United","Burnley","Southampton","Everton","Newcastle United","Crystal Palace","Brighton & Hove Albion","West Ham United","Aston Villa","Bournemouth","Watford","Norwich City"],"2020-21":["Manchester City","Manchester United","Liverpool","Chelsea","Leicester City","West Ham United","Tottenham Hotspur","Arsenal","Leeds United","Everton","Aston Villa","Newcastle United","Wolverhampton Wanderers","Crystal Palace","Southampton","Brighton & Hove Albion","Burnley","Fulham","West Bromwich Albion","Sheffield United"],"2021-22":["Manchester City","Liverpool","Chelsea","Tottenham Hotspur","Arsenal","Manchester United","West Ham United","Leicester City","Brighton & Hove Albion","Wolverhampton Wanderers","Newcastle United","Crystal Palace","Brentford","Aston Villa","Southampton","Everton","Leeds United","Burnley","Watford","Norwich City"],"2022-23":["Manchester City","Arsenal","Manchester United","Newcastle United","Liverpool","Brighton & Hove Albion","Aston Villa","Tottenham Hotspur","Brentford","Fulham","Crystal Palace","Chelsea","Wolverhampton Wanderers","West Ham United","Bournemouth","Nottingham Forest","Everton","Leicester City","Leeds United","Southampton"],"2023-24":["Manchester City","Arsenal","Liverpool","Aston Villa","Tottenham Hotspur","Chelsea","Newcastle United","Manchester United","West Ham United","Crystal Palace","Brighton & Hove Albion","Bournemouth","Fulham","Wolverhampton Wanderers","Everton","Brentford","Nottingham Forest","Luton Town","Burnley","Sheffield United"],"2024-25":["Liverpool","Arsenal","Manchester City","Chelsea","Newcastle United","Aston Villa","Nottingham Forest","Brighton & Hove Albion","Bournemouth","Brentford","Fulham","Crystal Palace","Everton","West Ham United","Manchester United","Wolverhampton Wanderers","Tottenham Hotspur","Leicester City","Ipswich Town","Southampton"],"2025-26":["Arsenal","Manchester City","Manchester United","Aston Villa","Liverpool","Bournemouth","Sunderland","Brighton & Hove Albion","Brentford","Chelsea","Fulham","Newcastle United","Everton","Leeds United","Crystal Palace","Nottingham Forest","Tottenham Hotspur","West Ham United","Burnley","Wolverhampton Wanderers"]};
+var Matcher = (function () {
+  function indexData(data) {
+    var seasons = Object.keys(data);
+    var pos = {};
+    seasons.forEach(function (s) {
+      pos[s] = {};
+      data[s].forEach(function (team, i) { pos[s][team] = i + 1; });
+    });
+    return { seasons: seasons, pos: pos };
+  }
+
+  function search(run, mode, idx) {
+    var n = run.length;
+    var rows = [];
+    for (var i = 0; i + n <= idx.seasons.length; i++) {
+      var win = idx.seasons.slice(i, i + n);
+      var teams = Object.keys(idx.pos[win[0]]);
+      for (var t = 0; t < teams.length; t++) {
+        var team = teams[t];
+        var seq = [];
+        var ok = true;
+        for (var k = 0; k < n; k++) {
+          var p = idx.pos[win[k]][team];
+          if (p === undefined) { ok = false; break; }
+          seq.push(p);
+        }
+        if (!ok) continue;
+        var d = seq.map(function (v, k) { return v - run[k]; });
+        var shift = 0;
+        if (mode === 'shape') {
+          var best = null;
+          for (var c = -25; c <= 25; c++) {
+            var a1 = 0, a2 = 0;
+            for (var j = 0; j < n; j++) { var q = d[j] - c; a1 += Math.abs(q); a2 += q * q; }
+            if (best === null || a1 < best.l1 || (a1 === best.l1 && a2 < best.l2)) best = { c: c, l1: a1, l2: a2 };
+          }
+          shift = best.c;
+        }
+        var l1 = 0, l2 = 0, hits = 0;
+        for (var m = 0; m < n; m++) {
+          var r = d[m] - shift;
+          l1 += Math.abs(r); l2 += r * r;
+          if (r === 0) hits++;
+        }
+        rows.push({ team: team, from: win[0], to: win[n - 1], seasons: win, seq: seq,
+                    score: l1, l2: l2, hits: hits, shift: shift });
+      }
+    }
+    rows.sort(function (a, b) {
+      return (a.score - b.score) || (b.hits - a.hits) || (a.l2 - b.l2) ||
+             (a.team < b.team ? -1 : a.team > b.team ? 1 : 0) || (a.from < b.from ? -1 : 1);
+    });
+    return rows;
+  }
+
+  function bestPerTeam(rows) {
+    var seen = {};
+    var out = [];
+    rows.forEach(function (r) {
+      if (!seen[r.team]) { seen[r.team] = true; out.push(r); }
+    });
+    return out;
+  }
+
+  return { indexData: indexData, search: search, bestPerTeam: bestPerTeam };
+})();
+if (typeof module !== 'undefined') module.exports = Matcher;
+
+</script>
+<script>
+(function () {
+  var idx = Matcher.indexData(DATA);
+  var state = { name: 'Me', run: [], mode: 'exact', slots: [], chart: null };
+  var KIND = { exact: 'Exact finishes', shape: 'Same shape' };
+
+  function $(id) { return document.getElementById(id); }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function make(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function parseRun(text) {
+    var parts = text.split(/[\s,;]+/).filter(Boolean);
+    if (!parts.length) return { error: 'Enter between 2 and 10 finishes, separated by commas.' };
+    var run = [];
+    for (var i = 0; i < parts.length; i++) {
+      var v = parts[i];
+      if (!/^\d+$/.test(v) || +v < 1 || +v > 22) {
+        return { error: '“' + v + '” is not a finishing place. Use whole numbers from 1 to 22.' };
+      }
+      run.push(+v);
+    }
+    if (run.length < 2) return { error: 'Enter at least 2 finishes.' };
+    if (run.length > 10) return { error: 'That is ' + run.length + ' finishes. The limit is 10.' };
+    return { run: run };
+  }
+
+  function chosen() { return state.slots.map(function (s) { return s.alts[s.sel]; }); }
+  function isSecond(slot) { return state.mode === 'both' && slot.kind === 'shape'; }
+  function colorVar(slot) { return isSecond(slot) ? '--match2' : '--match'; }
+  function teamLabel(slot, r) {
+    var base = r.team + ', ' + r.from + ' to ' + r.to;
+    return state.mode === 'both' ? KIND[slot.kind] + ': ' + base : base;
+  }
+
+  function drawChart() {
+    var picks = chosen();
+    var n = state.run.length;
+    var labels = [];
+    for (var i = 0; i < n; i++) labels.push('YR' + (i + 1));
+    var all = state.run.slice();
+    picks.forEach(function (r) { all = all.concat(r.seq); });
+    var ymax = Math.max(20, Math.max.apply(null, all));
+    var me = cssVar('--me'), tick = cssVar('--muted'), grid = cssVar('--grid'), surf = cssVar('--surface');
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var datasets = [
+      { label: state.name, data: state.run, borderColor: me, backgroundColor: me, borderWidth: 2, borderJoinStyle: 'round',
+        pointRadius: 5, pointHoverRadius: 7, pointBorderColor: surf, pointBorderWidth: 2, tension: 0 }
+    ];
+    state.slots.forEach(function (slot, i) {
+      var col = cssVar(colorVar(slot));
+      var alt = isSecond(slot);
+      datasets.push({ label: picks[i].team, data: picks[i].seq, borderColor: col, backgroundColor: col, borderWidth: 2,
+        borderDash: alt ? [2, 4] : [6, 4], borderJoinStyle: 'round', pointStyle: alt ? 'triangle' : 'rectRot',
+        pointRadius: 5, pointHoverRadius: 7, pointBorderColor: surf, pointBorderWidth: 2, tension: 0 });
+    });
+    if (state.chart) state.chart.destroy();
+    state.chart = new Chart($('chart'), {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: reduce ? false : { duration: 250 },
+        layout: { padding: { top: 8, bottom: 4 } },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            title: function (items) { return labels[items[0].dataIndex]; },
+            label: function (ctx) {
+              var s = ctx.datasetIndex === 0 ? '' : ' (' + picks[ctx.datasetIndex - 1].seasons[ctx.dataIndex] + ')';
+              return ctx.dataset.label + ': ' + ctx.parsed.y + s;
+            }
+          } }
+        },
+        scales: {
+          y: { reverse: true, min: 0, max: ymax + 1,
+               ticks: { stepSize: 1, color: tick, font: { size: 11 }, callback: function (v) { return (v < 1 || v > ymax) ? '' : v; } },
+               grid: { color: grid }, title: { display: true, text: 'Place', color: tick } },
+          x: { offset: true, ticks: { color: tick, font: { size: 12 } }, grid: { display: false } }
+        }
+      },
+      plugins: [{
+        id: 'legendAlign',
+        afterLayout: function (c) { $('legend').style.paddingLeft = Math.round(c.chartArea.left) + 'px'; }
+      }]
+    });
+    var desc = 'Line chart over ' + n + ' years. ' + state.name + ': ' + state.run.join(', ') + '.';
+    picks.forEach(function (r, i) {
+      desc += ' ' + teamLabel(state.slots[i], r) + ': ' + r.seq.join(', ') + '.';
+    });
+    $('chart').setAttribute('aria-label', desc + ' First place is at the top.');
+  }
+
+  function renderTable() {
+    var picks = chosen();
+    var both = state.mode === 'both';
+    var t = $('tbl');
+    t.textContent = '';
+    var head = make('thead'), hr = make('tr');
+    hr.appendChild(make('th', '', 'Year'));
+    hr.appendChild(make('th', '', state.name));
+    picks.forEach(function (r) {
+      hr.appendChild(make('th', '', r.team));
+      hr.appendChild(make('th', '', both ? 'Off' : 'Off by'));
+    });
+    head.appendChild(hr);
+    t.appendChild(head);
+    var body = make('tbody');
+    var totals = picks.map(function () { return 0; });
+    for (var i = 0; i < state.run.length; i++) {
+      var tr = make('tr');
+      var yr = make('td', 'yr', 'YR' + (i + 1));
+      if (!both) yr.appendChild(make('small', '', picks[0].seasons[i]));
+      tr.appendChild(yr);
+      tr.appendChild(make('td', '', String(state.run[i])));
+      picks.forEach(function (r, k) {
+        var off = Math.abs(r.seq[i] - state.run[i] - r.shift);
+        totals[k] += off;
+        tr.appendChild(make('td', '', String(r.seq[i])));
+        tr.appendChild(make('td', off === 0 ? 'zero' : '', String(off)));
+      });
+      body.appendChild(tr);
+    }
+    t.appendChild(body);
+    var foot = make('tfoot'), fr = make('tr');
+    fr.appendChild(make('td', '', 'Total'));
+    fr.appendChild(make('td', '', ''));
+    totals.forEach(function (sum) {
+      fr.appendChild(make('td', '', ''));
+      fr.appendChild(make('td', '', String(sum)));
+    });
+    foot.appendChild(fr);
+    t.appendChild(foot);
+  }
+
+  function renderResult() {
+    var both = state.mode === 'both';
+    var hl = $('headlines');
+    hl.textContent = '';
+    state.slots.forEach(function (slot) {
+      var r = slot.alts[slot.sel];
+      var shape = slot.kind === 'shape';
+      var box = make('div', 'headline');
+      if (both) box.appendChild(make('div', 'kind', KIND[slot.kind]));
+      box.appendChild(make('div', 'team', r.team));
+      box.appendChild(make('div', 'seasons', r.from + ' to ' + r.to));
+      var parts = [];
+      if (shape) {
+        var a = Math.abs(r.shift);
+        parts.push(r.shift === 0 ? 'Same shape with no shift'
+          : 'Same shape, shifted ' + plural(a, 'place') + (r.shift > 0 ? ' down' : ' up') + ' the table');
+      }
+      parts.push(r.score === 0 ? (shape ? 'Perfect shape match' : 'Exact match')
+        : 'Off by ' + plural(r.score, 'place') + ' in total' + (shape ? ' after the shift' : ''));
+      box.appendChild(make('p', 'detail', parts.join('. ') + '.'));
+      var best = slot.rows[0].score;
+      var tied = slot.rows.filter(function (x) { return x.score === best; }).length;
+      if (tied > 1) {
+        box.appendChild(make('p', 'meta', tied + ' stretches tie at ' + plural(best, 'place') + ' off, ranked by exact hits, then squared error.'));
+      }
+      hl.appendChild(box);
+    });
+    $('hl-meta').textContent = 'Searched ' + state.slots[0].rows.length + ' stretches of ' + plural(state.run.length, 'season') + '.';
+
+    var lg = $('legend');
+    lg.textContent = '';
+    var s1 = make('span'), d1 = make('i', 'sw');
+    d1.style.background = 'var(--me)';
+    s1.appendChild(d1);
+    s1.appendChild(document.createTextNode(state.desc ? state.name + ', ' + state.desc : state.name));
+    lg.appendChild(s1);
+    state.slots.forEach(function (slot) {
+      var r = slot.alts[slot.sel];
+      var s = make('span'), d = make('i', 'sw');
+      d.style.background = 'var(' + colorVar(slot) + ')';
+      s.appendChild(d);
+      s.appendChild(document.createTextNode(teamLabel(slot, r)));
+      lg.appendChild(s);
+    });
+
+    drawChart();
+    renderTable();
+
+    var wrap = $('alts-wrap');
+    wrap.textContent = '';
+    state.slots.forEach(function (slot) {
+      var group = make('div', 'altgroup');
+      group.appendChild(make('h2', '', both ? 'Closest ' + (slot.kind === 'exact' ? 'exact' : 'shape') + ' match per team' : 'Closest stretch per team'));
+      var box = make('div', 'alts');
+      slot.alts.forEach(function (x, i) {
+        var b = make('button');
+        b.type = 'button';
+        b.setAttribute('aria-pressed', i === slot.sel ? 'true' : 'false');
+        var left = make('span');
+        left.appendChild(make('span', 'nm', x.team));
+        left.appendChild(make('span', 'ss', x.from + ' to ' + x.to));
+        b.appendChild(left);
+        b.appendChild(make('span', 'sc', x.score + ' off'));
+        b.addEventListener('click', function () { slot.sel = i; renderResult(); });
+        box.appendChild(b);
+      });
+      group.appendChild(box);
+      wrap.appendChild(group);
+    });
+  }
+
+  function run() {
+    var parsed = parseRun($('finishes').value);
+    var err = $('err'), inp = $('finishes');
+    if (parsed.error) {
+      err.textContent = parsed.error; err.hidden = false;
+      inp.setAttribute('aria-invalid', 'true');
+      return;
+    }
+    err.hidden = true; inp.removeAttribute('aria-invalid');
+    state.name = $('name').value.trim().slice(0, 40) || 'Me';
+    state.desc = $('desc').value.trim().slice(0, 40);
+    state.run = parsed.run;
+    state.mode = $('mode').value;
+    var kinds = state.mode === 'both' ? ['exact', 'shape'] : [state.mode];
+    state.slots = kinds.map(function (k) {
+      var rows = Matcher.search(state.run, k, idx);
+      return { kind: k, rows: rows, alts: Matcher.bestPerTeam(rows).slice(0, 6), sel: 0 };
+    });
+    renderResult();
+  }
+
+  $('form').addEventListener('submit', function (e) { e.preventDefault(); run(); });
+  $('finishes').addEventListener('input', function () { $('err').hidden = true; this.removeAttribute('aria-invalid'); });
+
+  function redraw() { if (state.slots.length) drawChart(); }
+  try {
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+    new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  } catch (e) {}
+
+  run();
+})();
+</script>
+</body>
+</html>
